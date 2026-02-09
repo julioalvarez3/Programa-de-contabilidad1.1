@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA CONTABLE - Ingresos y Egresos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background-color: #f5f5f5; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            padding: 20px; 
+            margin-top: 50px;
+        }
+
+        #fecha-actual {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 0.9em;
+            color: #5d4037;
+            font-weight: bold;
+        }
+
+        /* --- ESTILOS PARA EL LOGO --- */
+        #logo-container {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            width: 100px; /* Tamaño del logo en pantalla */
+            z-index: 10;
+        }
+        #miLogo {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .marquee {
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+            background: #6F4E37;
+            color: white;
+            padding: 10px 0;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .marquee p {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 12s linear infinite;
+            white-space: nowrap;
+            font-weight: bold;
+            margin: 0;
+        }
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+
+        .contenedor { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            width: 450px;
+            border-top: 8px solid #6F4E37;
+            position: relative;
+        }
+
+        h2 { text-align: center; color: #3E2723; margin-top: 0; text-transform: uppercase; }
+
+        .balance { 
+            font-size: 1.8em; 
+            text-align: center; 
+            margin: 20px 0; 
+            font-weight: bold; 
+            color: #6F4E37;
+            background: #efebe9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px dashed #6F4E37;
+        }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; color: #5d4037; font-weight: bold; font-size: 0.9em; }
+        input, select { 
+            width: 100%; padding: 10px; box-sizing: border-box; 
+            border: 1px solid #d7ccc8; border-radius: 4px;
+        }
+
+        button { 
+            width: 100%; padding: 12px; color: white; border: none; 
+            border-radius: 4px; cursor: pointer; font-size: 1em;
+            margin-bottom: 8px; font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-add { background-color: #6F4E37; }
+        .btn-add:hover { background-color: #4e342e; transform: scale(1.02); }
+        
+        .btn-reset { background-color: #a1887f; margin-top: 10px; }
+        
+        .btn-export-excel { background-color: #2e7d32; }
+        .btn-export-excel:hover { background-color: #1b5e20; }
+        
+        .btn-export-pdf { background-color: #c62828; }
+        .btn-export-pdf:hover { background-color: #b71c1c; }
+
+        .history { 
+            margin-top: 20px; border: 1px solid #d7ccc8; 
+            padding: 15px; max-height: 200px; overflow-y: auto; background: #fafafa;
+        }
+
+        .item { display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid #efebe9; }
+        .item-row { display: flex; justify-content: space-between; align-items: center; }
+        .item-date { font-size: 0.7em; color: #8d6e63; }
+        
+        .ingreso { color: #2e7d32; font-weight: bold; }
+        .egreso { color: #c62828; font-weight: bold; }
+
+        .acciones-exportar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="fecha-actual"></div>
+
+    <div id="logo-container">
+        <img src="logo.jpg" id="miLogo" alt="Logo TUVN" onerror="this.style.display='none'">
+    </div>
+
+    <div class="marquee">
+        <p>PRIMERO DE CONTABILIDAD - GESTIÓN FINANCIERA  - SISTEMA DE CONTROL DE CAJA</p>
+    </div>
+
+    <div class="contenedor">
+        <h2>INGRESOS / EGRESOS</h2>
+        
+        <div style="text-align:center; font-size:0.8em; color: #888;">Saldo Inicial: $0.00</div>
+        
+        <div class="balance">
+            Saldo Actual: $<span id="saldo">0.00</span>
+        </div>
+
+        <div class="form-group">
+            <label>Concepto / Descripción</label>
+            <input type="text" id="desc" placeholder="Ej: Venta , Compra ...">
+        </div>
+
+        <div class="form-group">
+            <label>Valor ($)</label>
+            <input type="number" id="monto" placeholder="0.00" min="0" step="0.01">
+        </div>
+
+        <div class="form-group">
+            <label>Tipo de Transacción</label>
+            <select id="tipo">
+                <option value="ingreso">Ingreso </option>
+                <option value="egreso">Egreso </option>
+            </select>
+        </div>
+
+        <button class="btn-add" onclick="agregarMovimiento()">Registrar </button>
+
+        <div class="acciones-exportar">
+            <button class="btn-export-excel" onclick="exportarExcel()">Reporte Excel</button>
+            <button class="btn-export-pdf" onclick="exportarPDF()">Reporte PDF</button>
+        </div>
+
+        <button class="btn-reset" onclick="reiniciarPrograma()">Cerrar Caja / Limpiar</button>
+
+        <div class="history" id="historial">
+            <strong>Últimos Movimientos:</strong>
+            <hr>
+        </div>
+    </div>
+
+<script>
+    // Recuperar datos de memoria local si existen
+    let saldoInicial = 0;
+    let saldoTotal = 0;
+    let movimientos = JSON.parse(localStorage.getItem('datosContables')) || [];
+
+    // Función para mostrar historial guardado
+    function cargarHistorialGuardado() {
+        if(movimientos.length > 0) {
+            movimientos.forEach(m => {
+                if(m.Tipo === 'ingreso') saldoTotal += m.Monto;
+                else saldoTotal -= m.Monto;
+                dibujarItemHistorial(m);
+            });
+            document.getElementById('saldo').innerText = saldoTotal.toFixed(2);
+        }
+    }
+
+    function actualizarReloj() {
+        const ahora = new Date();
+        document.getElementById('fecha-actual').innerText = ahora.toLocaleString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    setInterval(actualizarReloj, 1000);
+    actualizarReloj();
+
+    function dibujarItemHistorial(m) {
+        const historial = document.getElementById('historial');
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+            <div class="item-row">
+                <span>${m.Descripción}</span>
+                <span class="${m.Tipo}">${m.Tipo === 'ingreso' ? '+' : '-'}$${m.Monto.toFixed(2)}</span>
+            </div>
+            <div class="item-date">${m.Fecha} - ${m.Tipo.toUpperCase()}</div>
+        `;
+        historial.prepend(div);
+    }
+
+    function agregarMovimiento() {
+        const desc = document.getElementById('desc').value;
+        const montoInput = document.getElementById('monto').value;
+        const monto = parseFloat(montoInput);
+        const tipo = document.getElementById('tipo').value;
+
+        if (desc.trim() === "" || isNaN(monto) || monto <= 0) {
+            alert("Por favor, ingresa una descripción válida y un monto mayor a 0.");
+            return;
+        }
+
+        const fechaObj = new Date();
+        const fechaHora = fechaObj.toLocaleDateString() + ' ' + fechaObj.toLocaleTimeString();
+        
+        if (tipo === 'ingreso') {
+            saldoTotal += monto;
+        } else {
+            saldoTotal -= monto;
+        }
+
+        const nuevoMovimiento = {
+            Fecha: fechaHora,
+            Descripción: desc,
+            Tipo: tipo,
+            Monto: monto
+        };
+
+        movimientos.push(nuevoMovimiento);
+        
+        // Guardar
+        localStorage.setItem('datosContables', JSON.stringify(movimientos));
+
+        document.getElementById('saldo').innerText = saldoTotal.toFixed(2);
+        dibujarItemHistorial(nuevoMovimiento);
+
+        document.getElementById('desc').value = "";
+        document.getElementById('monto').value = "";
+        document.getElementById('desc').focus();
+    }
+
+    // --- FUNCIÓN EXCEL ---
+    function exportarExcel() {
+        if (movimientos.length === 0) return alert("No hay datos contables para generar el reporte.");
+        
+        let totalIngresos = movimientos.filter(m=>m.Tipo==='ingreso').reduce((a,b)=>a+b.Monto,0);
+        let totalEgresos = movimientos.filter(m=>m.Tipo==='egreso').reduce((a,b)=>a+b.Monto,0);
+        let saldoFinalCalculado = saldoInicial + totalIngresos - totalEgresos;
+
+        let datosExcel = [];
+        datosExcel.push([" CONTABILIDAD"]);
+        datosExcel.push(["REPORTE DE INGRESOS Y EGRESOS"]);
+        datosExcel.push(["Fecha de Emisión:", new Date().toLocaleString()]);
+        datosExcel.push([""]);
+
+        datosExcel.push(["RESUMEN FINANCIERO"]);
+        datosExcel.push(["Concepto", "Monto Total ($)"]);
+        datosExcel.push(["Saldo Inicial", saldoInicial]);
+        datosExcel.push(["(+) Total Ingresos", totalIngresos]);
+        datosExcel.push(["(-) Total Egresos", totalEgresos]);
+        datosExcel.push(["(=) SALDO FINAL", saldoFinalCalculado]);
+        datosExcel.push([""]);
+
+        datosExcel.push(["DETALLE DE MOVIMIENTOS"]);
+        datosExcel.push(["N°", "Fecha", "Descripción / Detalle", "Ingreso", "Egreso"]);
+
+        movimientos.forEach((m, index) => {
+            let colIngreso = m.Tipo === 'ingreso' ? m.Monto : 0;
+            let colEgreso = m.Tipo === 'egreso' ? m.Monto : 0;
+            datosExcel.push([index + 1, m.Fecha, m.Descripción, colIngreso, colEgreso]);
+        });
+        
+        datosExcel.push(["", "", "TOTALES:", totalIngresos, totalEgresos]);
+
+        const ws = XLSX.utils.aoa_to_sheet(datosExcel);
+        ws['!cols'] = [{ wch: 5 }, { wch: 20 }, { wch: 40 }, { wch: 15 }, { wch: 15 }];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Libro Diario");
+        XLSX.writeFile(wb, "Reporte_Contable_Profesional.xlsx");
+    }
+
+    // --- FUNCIÓN PDF ---
+    function exportarPDF() {
+        if (movimientos.length === 0) return alert("No hay datos para exportar.");
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // --- AQUÍ SE INSERTA EL LOGO EN EL PDF ---
+        const imgElement = document.getElementById('miLogo');
+        // Verificamos que la imagen se haya cargado en el navegador
+        if (imgElement.complete && imgElement.naturalHeight !== 0) {
+            try {
+                // Coordenadas: Imagen, formato, X, Y, Ancho, Alto
+                doc.addImage(imgElement, 'JPEG', 160, 10, 30, 30); 
+            } catch (e) {
+                console.log("Error cargando imagen al PDF: " + e.message);
+            }
+        }
+
+        // Título y Cabecera
+        doc.setFontSize(16);
+        doc.setTextColor(111, 78, 55); 
+        doc.text("REPORTE DE INGRESOS Y EGRESOS", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Contabilidad`, 14, 26);
+        doc.text(`Fecha de impresión: ${new Date().toLocaleString()}`, 14, 32);
+
+        // Cálculos para Totales
+        let sumIngresos = movimientos.filter(m=>m.Tipo==='ingreso').reduce((a,b)=>a+b.Monto,0);
+        let sumEgresos = movimientos.filter(m=>m.Tipo==='egreso').reduce((a,b)=>a+b.Monto,0);
+
+        // Tabla Detallada
+        const filas = movimientos.map((m, i) => [
+            i + 1,
+            m.Fecha.split(' ')[0], 
+            m.Descripción, 
+            m.Tipo === 'ingreso' ? `$${m.Monto.toFixed(2)}` : '-',
+            m.Tipo === 'egreso' ? `$${m.Monto.toFixed(2)}` : '-'
+        ]);
+        
+        doc.autoTable({
+            startY: 40, 
+            head: [['#', 'Fecha', 'Descripción', 'Ingreso', 'Egreso']],
+            body: filas,
+            
+            // --- PIE DE TABLA CON TOTALES ---
+            foot: [
+                ['', '', 'TOTALES FINALES:', `$${sumIngresos.toFixed(2)}`, `$${sumEgresos.toFixed(2)}`]
+            ],
+            
+            theme: 'grid',
+            headStyles: { fillColor: [111, 78, 55], textColor: 255 },
+            footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+            columnStyles: {
+                3: { textColor: [0, 100, 0], halign: 'right' }, 
+                4: { textColor: [180, 0, 0], halign: 'right' }  
+            }
+        });
+        
+        // Saldo Final Grande abajo
+        let finalY = doc.lastAutoTable.finalY + 15;
+        doc.setFontSize(12);
+        doc.setTextColor(0,0,0);
+        
+        // Dibujar un recuadro para el saldo final
+        doc.setDrawColor(0);
+        doc.setFillColor(240, 240, 240);
+        doc.rect(14, finalY - 6, 100, 10, 'F');
+        doc.text(`SALDO DISPONIBLE EN CAJA: $${saldoTotal.toFixed(2)}`, 16, finalY);
+
+        doc.save("Reporte_Ingresos_Egresos.pdf");
+    }
+
+    function reiniciarPrograma() {
+        if(confirm("¿Estás seguro de cerrar caja? Se borrará todo.")) {
+            saldoTotal = 0;
+            movimientos = [];
+            localStorage.removeItem('datosContables');
+            document.getElementById('saldo').innerText = "0.00";
+            document.getElementById('historial').innerHTML = "<strong>Últimos Movimientos:</strong><hr>";
+            document.getElementById('desc').value = "";
+            document.getElementById('monto').value = "";
+        }
+    }
+
+    // Cargar datos al iniciar
+    cargarHistorialGuardado();
+</script>
+
+</body>
+</html>
